@@ -196,7 +196,7 @@ function formatMoney(value) {
 export async function main(ns) {
   ns.disableLog("ALL");
 
-  const reserveHomeRam = Number(getFlagValue(ns, "--reserve-home", 32));
+  const reserveHomeRam = Number(getFlagValue(ns, "--reserve-home", 0));
   const manualTarget = String(getFlagValue(ns, "--target", "")).trim();
   const idleMs = Number(getFlagValue(ns, "--idle", 5000));
   const once = hasFlag(ns, "--once");

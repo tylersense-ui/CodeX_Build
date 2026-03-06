@@ -90,7 +90,7 @@ function killManagedScripts(ns, hosts, selfPid) {
 export async function main(ns) {
   ns.disableLog("ALL");
 
-  const reserveHomeRam = Number(getFlagValue(ns, "--reserve-home", 32));
+  const reserveHomeRam = Number(getFlagValue(ns, "--reserve-home", 0));
   const forcedTarget = String(getFlagValue(ns, "--target", "")).trim();
   const clean = hasFlag(ns, "--clean");
   const dryRun = hasFlag(ns, "--dry-run");
