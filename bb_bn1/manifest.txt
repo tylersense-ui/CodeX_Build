@@ -10,6 +10,7 @@ bb_bn1/lib/targeting.js
 # Runtime
 bb_bn1/main/deploy.js
 bb_bn1/main/controller.js
+bb_bn1/main/early-controller.js
 bb_bn1/workers/hack-once.js
 bb_bn1/workers/grow-once.js
 bb_bn1/workers/weaken-once.js

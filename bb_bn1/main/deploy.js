@@ -2,7 +2,8 @@ import { scanAll } from "/bb_bn1/lib/net.js";
 import { rootAll } from "/bb_bn1/lib/root.js";
 
 const MANIFEST = "/bb_bn1/manifest.txt";
-const CONTROLLER = "/bb_bn1/main/controller.js";
+const MAIN_CONTROLLER = "/bb_bn1/main/controller.js";
+const EARLY_CONTROLLER = "/bb_bn1/main/early-controller.js";
 const SCP_ALLOWED_EXTENSIONS = [".js", ".script", ".ns", ".txt", ".lit"];
 
 function hasFlag(ns, flag) {
@@ -43,7 +44,8 @@ function sanitizeManagedFiles(ns, files) {
 /** @param {NS} ns */
 function getManagedFiles(ns) {
   const fallback = [
-    "/bb_bn1/main/controller.js",
+    MAIN_CONTROLLER,
+    EARLY_CONTROLLER,
     "/bb_bn1/workers/hack-once.js",
     "/bb_bn1/workers/grow-once.js",
     "/bb_bn1/workers/weaken-once.js",
@@ -87,6 +89,50 @@ function killManagedScripts(ns, hosts, selfPid) {
 }
 
 /** @param {NS} ns */
+function pickController(ns) {
+  const forceEarly = hasFlag(ns, "--force-early");
+  const forceMain = hasFlag(ns, "--force-main");
+
+  const homeMaxRam = ns.getServerMaxRam("home");
+  const mainRam = ns.getScriptRam(MAIN_CONTROLLER, "home");
+  const earlyRam = ns.getScriptRam(EARLY_CONTROLLER, "home");
+
+  if (forceMain) {
+    return {
+      controller: MAIN_CONTROLLER,
+      reason: "forced-main",
+      controllerRam: mainRam,
+      homeMaxRam,
+    };
+  }
+
+  if (forceEarly) {
+    return {
+      controller: EARLY_CONTROLLER,
+      reason: "forced-early",
+      controllerRam: earlyRam,
+      homeMaxRam,
+    };
+  }
+
+  if (mainRam > 0 && mainRam <= homeMaxRam) {
+    return {
+      controller: MAIN_CONTROLLER,
+      reason: "auto-main",
+      controllerRam: mainRam,
+      homeMaxRam,
+    };
+  }
+
+  return {
+    controller: EARLY_CONTROLLER,
+    reason: "auto-early",
+    controllerRam: earlyRam,
+    homeMaxRam,
+  };
+}
+
+/** @param {NS} ns */
 export async function main(ns) {
   ns.disableLog("ALL");
 
@@ -127,34 +173,39 @@ export async function main(ns) {
     return;
   }
 
-  ns.scriptKill(CONTROLLER, "home");
+  ns.scriptKill(MAIN_CONTROLLER, "home");
+  ns.scriptKill(EARLY_CONTROLLER, "home");
 
-  const runArgs = ["--reserve-home", reserveHomeRam];
-  if (forcedTarget) {
-    runArgs.push("--target", forcedTarget);
-  }
-
-  const controllerRam = ns.getScriptRam(CONTROLLER, "home");
-  const homeMaxRam = ns.getServerMaxRam("home");
+  const picked = pickController(ns);
+  const controller = picked.controller;
+  const controllerRam = picked.controllerRam;
 
   if (controllerRam <= 0) {
-    ns.tprint("[deploy] controller script missing on home");
+    ns.tprint(`[deploy] selected controller missing on home: ${controller}`);
     return;
   }
 
-  if (controllerRam > homeMaxRam) {
+  if (controllerRam > picked.homeMaxRam) {
     ns.tprint(
-      `[deploy] controller needs ${controllerRam.toFixed(2)}GB but home max is ${homeMaxRam.toFixed(2)}GB.` +
+      `[deploy] selected controller needs ${controllerRam.toFixed(2)}GB but home max is ${picked.homeMaxRam.toFixed(2)}GB.` +
         " Upgrade home RAM first.",
     );
     return;
   }
 
+  const runArgs = [];
+  if (controller === MAIN_CONTROLLER) {
+    runArgs.push("--reserve-home", reserveHomeRam);
+  }
+  if (forcedTarget) {
+    runArgs.push("--target", forcedTarget);
+  }
+
   ns.tprint(
     `[deploy] ok newRoot=${newRooted} rooted=${rooted.length}` +
       ` copied=${copied} copyFail=${copyFail} cleanKilled=${killed} files=${files.length}` +
-      ` -> spawning controller`,
+      ` mode=${picked.reason} controller=${controller}`,
   );
 
-  ns.spawn(CONTROLLER, 1, ...runArgs);
+  ns.spawn(controller, 1, ...runArgs);
 }
