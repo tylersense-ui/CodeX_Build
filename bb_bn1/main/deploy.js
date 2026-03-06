@@ -134,14 +134,27 @@ export async function main(ns) {
     runArgs.push("--target", forcedTarget);
   }
 
-  const pid = ns.run(CONTROLLER, 1, ...runArgs);
-  if (pid === 0) {
-    ns.tprint("[deploy] failed to start controller (check home RAM and reserve value)");
+  const controllerRam = ns.getScriptRam(CONTROLLER, "home");
+  const homeMaxRam = ns.getServerMaxRam("home");
+
+  if (controllerRam <= 0) {
+    ns.tprint("[deploy] controller script missing on home");
+    return;
+  }
+
+  if (controllerRam > homeMaxRam) {
+    ns.tprint(
+      `[deploy] controller needs ${controllerRam.toFixed(2)}GB but home max is ${homeMaxRam.toFixed(2)}GB.` +
+        " Upgrade home RAM first.",
+    );
     return;
   }
 
   ns.tprint(
     `[deploy] ok newRoot=${newRooted} rooted=${rooted.length}` +
-      ` copied=${copied} copyFail=${copyFail} cleanKilled=${killed} files=${files.length} controllerPid=${pid}`,
+      ` copied=${copied} copyFail=${copyFail} cleanKilled=${killed} files=${files.length}` +
+      ` -> spawning controller`,
   );
+
+  ns.spawn(CONTROLLER, 1, ...runArgs);
 }
