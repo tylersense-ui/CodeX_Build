@@ -19,3 +19,5 @@ bb_bn1/workers/weaken-once.js
 bb_bn1/report/snapshot.js
 bb_bn1/report/summary.js
 bb_bn1/report/diff.js
+bb_bn1/report/snapshot-lite.js
+bb_bn1/report/diff-lite.js
